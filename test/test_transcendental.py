@@ -30,8 +30,7 @@ class TestTranscendentalMath(unittest.TestCase):
     ([(Tensor.sin, np.sin)] if is_dtype_supported(dtypes.ulong) else [])))
   def test_float32(self, x, op):
     # wrong nan behavior on Vulkan
-    if (math.isnan(x) or (x < 0 and op[0] == Tensor.log)) and CI and Device.DEFAULT == "WEBGPU":
-      return
+    if (math.isnan(x) or (x < 0 and op[0] == Tensor.log)) and CI and Device.DEFAULT == "WEBGPU": return
     with Context(TRANSCENDENTAL=2), np.errstate(all='ignore'):
       np.testing.assert_allclose(op[0](Tensor([x], dtype=dtypes.float32)).numpy(),
                                  op[1](np.array([x], dtype=_to_np_dtype(dtypes.float32))),
