@@ -129,32 +129,36 @@ class TestTranscendentalSchedule(unittest.TestCase):
       check_schedule(c, 1)
 
 class TestTranscendentalVectorized(unittest.TestCase):
-  def test_vectorized_sin(self):
+  def run_vectorized_test(self, op, np_op, min_val, max_val): 
     with Context(TRANSCENDENTAL=2), np.errstate(all='ignore'):
-      # create a vector of 100 float32 values ranging from -100 to 100
-      x_vals = np.linspace(-100, 100, num=100).astype(np.float32)
-      t = Tensor(x_vals, dtype=dtypes.float32)
-      tg_sin = t.sin().numpy()
-      np_sin = np.sin(x_vals)
-      np.testing.assert_allclose(tg_sin, np_sin, atol=2e-5, rtol=1e-5)
+      for vec_size in (1, 2, 4, 8):
+        num_elements = (100 // vec_size) * vec_size
+        x_vals = np.linspace(min_val, max_val, num=num_elements).astype(np.float32).reshape(-1, vec_size)
+        t = Tensor(x_vals, dtype=dtypes.float32.vec(vec_size))
+        tg_result = op(t).numpy().reshape(-1)
+        np_result = np_op(x_vals.reshape(-1))
+        np.testing.assert_allclose(tg_result, np_result, atol=2e-5, rtol=1e-5)
+
+  def test_vectorized_sin(self):
+    self.run_vectorized_test(Tensor.sin, np.sin, -100, 100)
 
   def test_vectorized_log2(self):
-    with Context(TRANSCENDENTAL=2), np.errstate(all='ignore'):
-      # log2 is defined for positive numbers so we choose a range from 0.1 to 100
-      x_vals = np.linspace(0.1, 100, num=100).astype(np.float32)
-      t = Tensor(x_vals, dtype=dtypes.float32)
-      tg_log2 = t.log2().numpy()
-      np_log2 = np.log2(x_vals)
-      np.testing.assert_allclose(tg_log2, np_log2, atol=2e-5, rtol=1e-5)
+    self.run_vectorized_test(Tensor.log2, np.log2, 0.1, 100)
 
   def test_vectorized_exp2(self):
+    self.run_vectorized_test(Tensor.exp2, np.exp2, -10, 10)
+
+  def test_vectorized_pow(self): 
     with Context(TRANSCENDENTAL=2), np.errstate(all='ignore'):
-      # exp2 is valid for any real number; we test from -10 to 10
-      x_vals = np.linspace(-10, 10, num=100).astype(np.float32)
-      t = Tensor(x_vals, dtype=dtypes.float32)
-      tg_exp2 = t.exp2().numpy()
-      np_exp2 = np.exp2(x_vals)
-      np.testing.assert_allclose(tg_exp2, np_exp2, atol=2e-5, rtol=1e-5)
+      for vec_size in (1, 2, 4, 8):
+        num_elements = (100 // vec_size) * vec_size
+        bases = np.linspace(1.0, 10.0, num=num_elements).astype(np.float32).reshape(-1, vec_size)
+        exponents = np.linspace(0.0, 3.0, num=num_elements).astype(np.float32).reshape(-1, vec_size)
+        t_base = Tensor(bases, dtype=dtypes.float32.vec(vec_size))
+        t_exponent = Tensor(exponents, dtype=dtypes.float32.vec(vec_size))
+        result = t_base.pow(t_exponent).numpy().reshape(-1)
+        expected = np.power(bases, exponents).reshape(-1)
+        np.testing.assert_allclose(result, expected, atol=1e-5, rtol=1e-5)
 
 if __name__ == '__main__':
   unittest.main()
