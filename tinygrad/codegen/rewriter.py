@@ -461,7 +461,6 @@ devectorize = PatternMatcher([
   (UPat(Ops.WMMA, name="wmma"), no_vectorized_wmma),
   (UPat(Ops.DEFINE_ACC, name="acc"), no_vectorized_acc),
   (UPat((Ops.LOAD, Ops.STORE), name="ls"), no_vectorized_load_store),
-  (UPat((Ops.LOAD, Ops.STORE), name="ls"), no_vectorized_load_store),
   (UPat((Ops.INDEX, Ops.EXP2, Ops.LOG2, Ops.SIN), name="alu"), no_vectorized_alu),
 ])
 
