@@ -41,15 +41,14 @@ class TestTranscendentalMath(unittest.TestCase):
     ([(Tensor.sin, np.sin)] if is_dtype_supported(dtypes.ulong) else [])))
   def test_float16(self, x, op):
     # wrong nan behavior on Vulkan
-    if (math.isnan(x) or (x < 0 and op[0] == Tensor.log)) and CI and Device.DEFAULT == "WEBGPU":
-      return
+    if (math.isnan(x) or (x < 0 and op[0] == Tensor.log)) and CI and Device.DEFAULT == "WEBGPU": return
     with Context(TRANSCENDENTAL=2), np.errstate(all='ignore'):
       np.testing.assert_allclose(op[0](Tensor([x], dtype=dtypes.float16)).numpy(),
                                  op[1](np.array([x], dtype=_to_np_dtype(dtypes.float16))),
                                  atol=1e-2, rtol=5e-3)  # exp can have bigger rtol
 
   @given(strat.sampled_from([(dtypes.float64, 709.5), (dtypes.float32, 88.7), (dtypes.float16, 11)] if Device.DEFAULT != "WEBGPU"
-            else [(dtypes.float64, 709.5), (dtypes.float32, 88.3), (dtypes.float16, 10.7)]))
+    else [(dtypes.float64, 709.5), (dtypes.float32, 88.3), (dtypes.float16, 10.7)]))
   def test_exp_near_inf(self, dtype_x):
     # reordering compute might return inf
     dtype, x = dtype_x
@@ -67,15 +66,12 @@ class TestFromFuzzer(unittest.TestCase):
     if dtype == dtypes.float64:
       # crashes in CI CUDA
       if getenv("MOCKGPU") and Device.DEFAULT in {"NV", "CUDA"}: return
-    def _test_value(n: float, unit: float = 1.0):
+    def _test_value(n: float, unit: float=1.0):
       next_float = np.nextafter(1.0, 2.0, dtype=_to_np_dtype(dtype))
       ulp = next_float - 1.0
       ulp = unit * ulp
       with Context(TRANSCENDENTAL=2):
-        np.testing.assert_allclose(
-          Tensor([n], dtype=dtype).sin().numpy(),
-          np.sin(np.array([n], dtype=_to_np_dtype(dtype))),
-          atol=ulp, rtol=1e-5)
+        np.testing.assert_allclose(Tensor([n], dtype=dtype).sin().numpy(), np.sin(np.array([n], dtype=_to_np_dtype(dtype))), atol=ulp, rtol=1e-5)
     _test_value(-35.0)
     _test_value(-25.0)
     _test_value(25.0)
