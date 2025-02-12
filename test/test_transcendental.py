@@ -48,7 +48,7 @@ class TestTranscendentalMath(unittest.TestCase):
                                  atol=1e-2, rtol=5e-3)  # exp can have bigger rtol
 
   @given(strat.sampled_from([(dtypes.float64, 709.5), (dtypes.float32, 88.7), (dtypes.float16, 11)] if Device.DEFAULT != "WEBGPU"
-    else [(dtypes.float64, 709.5), (dtypes.float32, 88.3), (dtypes.float16, 10.7)]))
+    else  [(dtypes.float64, 709.5), (dtypes.float32, 88.3), (dtypes.float16, 10.7)]))
   def test_exp_near_inf(self, dtype_x):
     # reordering compute might return inf
     dtype, x = dtype_x
