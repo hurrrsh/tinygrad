@@ -129,7 +129,7 @@ class TestTranscendentalSchedule(unittest.TestCase):
       check_schedule(c, 1)
 
 class TestTranscendentalVectorized(unittest.TestCase):
-  def run_vectorized_test(self, op, np_op, min_val, max_val): 
+  def run_vectorized_test(self, op, np_op, min_val, max_val):
     with Context(TRANSCENDENTAL=2), np.errstate(all='ignore'):
       for vec_size in (1, 2, 4, 8):
         num_elements = (100 // vec_size) * vec_size
