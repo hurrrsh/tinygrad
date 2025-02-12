@@ -148,7 +148,7 @@ class TestTranscendentalVectorized(unittest.TestCase):
   def test_vectorized_exp2(self):
     self.run_vectorized_test(Tensor.exp2, np.exp2, -10, 10)
 
-  def test_vectorized_pow(self): 
+  def test_vectorized_pow(self):
     with Context(TRANSCENDENTAL=2), np.errstate(all='ignore'):
       for vec_size in (1, 2, 4, 8):
         num_elements = (100 // vec_size) * vec_size
