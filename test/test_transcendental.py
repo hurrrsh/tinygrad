@@ -22,8 +22,8 @@ class TestTranscendentalMath(unittest.TestCase):
       if abs(x) > 100_000_000: return
     with Context(TRANSCENDENTAL=2), np.errstate(all='ignore'):
       np.testing.assert_allclose(op[0](Tensor([x], dtype=dtypes.float64)).numpy(),
-                                op[1](np.array([x], dtype=_to_np_dtype(dtypes.float64))),
-                                atol=3e-2, rtol=1e-5)  # sin can have bigger atol for very big x
+                                 op[1](np.array([x], dtype=_to_np_dtype(dtypes.float64))),
+                                 atol=3e-2, rtol=1e-5)  # sin can have bigger atol for very big x
 
   @unittest.skipIf(getenv("MOCKGPU") and Device.DEFAULT in {"NV", "CUDA"}, "crashed")
   @given(ht.float32, strat.sampled_from([(Tensor.exp, np.exp),(Tensor.log, np.log)] +
@@ -34,11 +34,11 @@ class TestTranscendentalMath(unittest.TestCase):
       return
     with Context(TRANSCENDENTAL=2), np.errstate(all='ignore'):
       np.testing.assert_allclose(op[0](Tensor([x], dtype=dtypes.float32)).numpy(),
-                                op[1](np.array([x], dtype=_to_np_dtype(dtypes.float32))),
-                                atol=2e-5, rtol=1e-5)
+                                 op[1](np.array([x], dtype=_to_np_dtype(dtypes.float32))),
+                                 atol=2e-5, rtol=1e-5)
 
   @unittest.skipUnless(is_dtype_supported(dtypes.float16, Device.DEFAULT), f"no float16 on {Device.DEFAULT}")
-  @given(ht.float16, strat.sampled_from([(Tensor.exp, np.exp), (Tensor.log, np.log)] +
+  @given(ht.float16, strat.sampled_from([(Tensor.exp, np.exp),(Tensor.log, np.log)] +
     ([(Tensor.sin, np.sin)] if is_dtype_supported(dtypes.ulong) else [])))
   def test_float16(self, x, op):
     # wrong nan behavior on Vulkan
@@ -46,12 +46,11 @@ class TestTranscendentalMath(unittest.TestCase):
       return
     with Context(TRANSCENDENTAL=2), np.errstate(all='ignore'):
       np.testing.assert_allclose(op[0](Tensor([x], dtype=dtypes.float16)).numpy(),
-                                op[1](np.array([x], dtype=_to_np_dtype(dtypes.float16))),
-                                atol=1e-2, rtol=5e-3)  # exp can have bigger rtol
+                                 op[1](np.array([x], dtype=_to_np_dtype(dtypes.float16))),
+                                 atol=1e-2, rtol=5e-3)  # exp can have bigger rtol
 
-  @given(strat.sampled_from([(dtypes.float64, 709.5), (dtypes.float32, 88.7), (dtypes.float16, 11)]
-            if Device.DEFAULT != "WEBGPU" else
-            [(dtypes.float64, 709.5), (dtypes.float32, 88.3), (dtypes.float16, 10.7)]))
+  @given(strat.sampled_from([(dtypes.float64, 709.5), (dtypes.float32, 88.7), (dtypes.float16, 11)] if Device.DEFAULT != "WEBGPU"
+            else [(dtypes.float64, 709.5), (dtypes.float32, 88.3), (dtypes.float16, 10.7)]))
   def test_exp_near_inf(self, dtype_x):
     # reordering compute might return inf
     dtype, x = dtype_x
@@ -68,8 +67,7 @@ class TestFromFuzzer(unittest.TestCase):
     if not is_dtype_supported(dtype): return
     if dtype == dtypes.float64:
       # crashes in CI CUDA
-      if getenv("MOCKGPU") and Device.DEFAULT in {"NV", "CUDA"}:
-        return
+      if getenv("MOCKGPU") and Device.DEFAULT in {"NV", "CUDA"}: return
     def _test_value(n: float, unit: float = 1.0):
       next_float = np.nextafter(1.0, 2.0, dtype=_to_np_dtype(dtype))
       ulp = next_float - 1.0
