@@ -52,7 +52,7 @@ class _MXCSRContext:
     lib.set_fpcr(self._saved)
 
 from tinygrad.uop.ops import UOp, Ops, KernelInfo, AxisType
-from tinygrad.dtype import dtypes
+from tinygrad.dtype import dtypes, AddrSpace
 from tinygrad.device import Buffer, BufferSpec
 from tinygrad.runtime.autogen import hsa
 from tinygrad.helpers import Context, DEBUG, PROFILE, colored
@@ -67,7 +67,7 @@ from tinygrad.runtime.autogen.amd.rdna4 import ins as ir4
 from tinygrad.runtime.autogen.amd.cdna import ins as irc
 from tinygrad.renderer.amd.dsl import VCC_LO, EXEC_LO, SCC, ttmp
 from tinygrad.runtime.autogen.amd.common import Fmt, OpType
-from test.mockgpu.amd.pcode import parse_block, _FUNCS
+from test.mockgpu.amd.pcode import parse_block, _FUNCS, _set_bits, _val_to_bits
 
 MASK32 = 0xFFFFFFFF
 
@@ -230,11 +230,12 @@ VOPD_TO_VOP2 = {
   ir4.VOPDOp.V_DUAL_MOV_B32: ir3.VOP1Op.V_MOV_B32_E32, ir4.VOPDOp.V_DUAL_CNDMASK_B32: ir3.VOP2Op.V_CNDMASK_B32_E32,
   ir4.VOPDOp.V_DUAL_FMAAK_F32: ir3.VOP2Op.V_FMAAK_F32_E32, ir4.VOPDOp.V_DUAL_FMAMK_F32: ir3.VOP2Op.V_FMAMK_F32_E32,
 }
-WAVE_SIZE = 32
+def _wave_size(arch: str) -> int: return 64 if arch.startswith("cdna") else 32
+WAVE_SIZE = 32  # default wave size for RDNA (exported for test_compare_emulators)
 # Special registers stored after inline constants (256-259)
 PC_LO_IDX, PC_HI_IDX, SCRATCH_STRIDE_IDX = 256, 257, 259
 # SGPR buffer: 0-127 = SGPRs, 128-255 = inline constants, 256-259 = special registers
-SGPR_COUNT, VGPR_SIZE = 260, 256 * 32
+SGPR_COUNT = 260
 # Sentinel PC value for s_endpgm
 ENDPGM_PC = 0xFFFFFFFFFFFFFFFF
 
@@ -246,7 +247,9 @@ def _to_u32(val: UOp) -> UOp:
   if val.dtype == dtypes.uint32: return val
   if val.dtype.itemsize == 4: return val.bitcast(dtypes.uint32)  # same size: bitcast (float32->uint32)
   return val.cast(dtypes.uint32)  # different size: cast (bool, int16, etc)
-def _lane_active(exec_mask: UOp, lane: UOp) -> UOp: return ((exec_mask >> lane.cast(dtypes.uint32)) & _c(1)).ne(_c(0))
+def _lane_active(exec_mask: UOp, lane: UOp) -> UOp:
+  if exec_mask.dtype == dtypes.uint64: return ((exec_mask >> lane.cast(dtypes.uint64)) & UOp.const(dtypes.uint64, 1)).ne(UOp.const(dtypes.uint64, 0))
+  return ((exec_mask >> lane.cast(dtypes.uint32)) & _c(1)).ne(_c(0))
 def _hi16(v: UOp) -> UOp: return (v >> _c(16)) & _c(0xFFFF)
 def _cond(cond, if_true, if_false):
   """Select between values based on condition (works with UOp or bool)."""
@@ -255,7 +258,13 @@ def _cond_hi16(cond, val: UOp) -> UOp: return _cond(cond, _hi16(val), val)
 def _apply_opsel(val: UOp, sel_bit: int, opsel: int) -> UOp: return _hi16(val) if opsel & (1 << sel_bit) else val
 
 def _set_lane_bit(old: UOp, lane: UOp, val: UOp, exec_mask: UOp) -> UOp:
-  """Set/clear a single bit in a 32-bit mask based on lane index, respecting exec mask."""
+  """Set/clear a single bit in a mask based on lane index, respecting exec mask."""
+  if old.dtype in (dtypes.uint64, dtypes.int64):
+    dt = dtypes.uint64
+    mask = UOp.const(dt, 1) << lane.cast(dt)
+    new_bit = _to_u32(val).cast(dt) << lane.cast(dt)
+    cleared = old.cast(dt) & (mask ^ UOp.const(dt, 0xFFFFFFFFFFFFFFFF))
+    return _lane_active(exec_mask, lane).where(cleared | new_bit, old.cast(dt))
   mask = _c(1) << lane.cast(dtypes.uint32)
   new_bit = _to_u32(val) << lane.cast(dtypes.uint32)
   cleared = old & (mask ^ _c(MASK32))
